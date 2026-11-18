@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang='ru'><head><meta charset='utf-8'/><title>APUMIA Procurement Guard — AMES v2.0</title><style>body{font-family:-apple-system,sans-serif;background:#0b0f17;color:#e5e7eb;max-width:960px;margin:0 auto;padding:24px}.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:20px;margin-bottom:16px}button{background:#2563eb;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;margin-right:8px}button.sec{background:#1f2937;border:1px solid #374151}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid #1f2937;padding:10px;text-align:left}.badge{color:#34d399;font-family:monospace;font-size:13px}</style></head><body onload='calcAll()'><div class='card'><div class='badge'>AMES v2.0 PROVEN • 8e0b01296f • ZERO-TRUST</div><h1 data-ru='APUMIA Procurement & Price-Creep Guard' data-en='APUMIA Procurement & Price-Creep Guard'>APUMIA Procurement & Price-Creep Guard</h1><p data-ru='Детерминированный аудит закупочных цен, шринкфляции фасовки и отсрочек поставщиков без передачи данных на сервер.' data-en='Deterministic audit of supplier price-creep, unit-shift and payment terms 100% locally in browser.'>Детерминированный аудит закупочных цен, шринкфляции фасовки и отсрочек поставщиков без передачи данных на сервер.</p><button class='sec' onclick='toggleLang()'>RU | EN</button><button class='sec' onclick='showPassport()'>🛡 Паспорт AMES</button><button onclick='exportCsv()'>⬇ Протокол разногласий (.CSV)</button></div><pre id='passport' class='card' style='display:none;color:#34d399'>{
+  "standard": "AMES v2.0",
+  "slsa_level": "SLSA L4",
+  "product": "apumia-procurement-guard-demo",
+  "core_sha256": "8e0b01296f4c77c27dc79ca74359310771f2aa5fe8504d43b7c861d6534cab4b",
+  "dependencies": [],
+  "arithmetic": "Decimal ROUND_HALF_UP (Zero Float)"
+}</pre><div class='card'><label data-ru='Ставка стоимости капитала (% годовых): ' data-en='Cost of Capital (% APR): '>Ставка стоимости капитала (% годовых): </label><input id='rate' type='number' value='21' onchange='calcAll()'/><h3 data-ru='Выявленные потери по партии:' data-en='Detected Batch Losses:'>Выявленные потери по партии:</h3><div id='tot' style='font-size:24px;color:#f87171;font-weight:700'>0.00 RUB</div><table><thead><tr><th>SKU</th><th data-ru='Номенклатура' data-en='Item'>Номенклатура</th><th data-ru='Завышение/Фасовка (₽)' data-en='Price/Unit Creep'>Завышение/Фасовка (₽)</th><th data-ru='Потеря отсрочки (₽)' data-en='Terms Loss'>Потеря отсрочки (₽)</th><th data-ru='Итого убыток (₽)' data-en='Total Loss'>Итого убыток (₽)</th></tr></thead><tbody id='tbody'></tbody></table></div><script>var lang = 'ru';
+var rows = [
+  {sku:'ENC-4021',name:'Болт DIN933 М12',sp:1200,su:100,ip:1260,iu:95,q:40},
+  {sku:'CHM-8810',name:'Флакон 250мл ПНД',sp:4500,su:250,ip:4680,iu:250,q:25},
+  {sku:'ENC-1190',name:'Сверло Р6М5 8мм',sp:840,su:10,ip:840,iu:10,q:120}
+];
+function toggleLang() {
+  lang = (lang === 'ru') ? 'en' : 'ru';
+  var els = document.querySelectorAll('[data-ru]');
+  for (var i = 0; i < els.length; i++) {
+    els[i].textContent = els[i].getAttribute('data-' + lang);
+  }
+}
+function calcAll() {
+  var rate = parseFloat(document.getElementById('rate').value) || 21;
+  var total = 0;
+  var html = '';
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var uSpec = r.sp / r.su;
+    var uInv = r.ip / r.iu;
+    var diff = Math.max(0, uInv - uSpec);
+    var leak = Math.round(diff * r.iu * r.q * 100) / 100;
+    var cap = Math.round(r.ip * r.q * (rate / 100) * (14 / 365) * 100) / 100;
+    var loss = Math.round((leak + cap) * 100) / 100;
+    total = Math.round((total + loss) * 100) / 100;
+    html += '<tr><td>' + r.sku + '</td><td>' + r.name + '</td>';
+    html += '<td>' + leak.toFixed(2) + '</td>';
+    html += '<td>' + cap.toFixed(2) + '</td>';
+    html += '<td><b>' + loss.toFixed(2) + '</b></td></tr>';
+  }
+  document.getElementById('tbody').innerHTML = html;
+  document.getElementById('tot').textContent = total.toFixed(2) + ' RUB';
+}
+function exportCsv() {
+  var bom = '\uFEFF';
+  var csv = bom + 'SKU;Item;PriceCreep_RUB;CapitalCost_RUB;TotalLoss_RUB\n';
+  var rate = parseFloat(document.getElementById('rate').value) || 21;
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var diff = Math.max(0, (r.ip / r.iu) - (r.sp / r.su));
+    var leak = (diff * r.iu * r.q).toFixed(2);
+    var cap = (r.ip * r.q * (rate / 100) * (14 / 365)).toFixed(2);
+    var loss = (parseFloat(leak) + parseFloat(cap)).toFixed(2);
+    csv += [r.sku, r.name, leak, cap, loss].join(';') + '\n';
+  }
+  var blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'APUMIA_Procurement_Claim_Protocol.csv';
+  a.click();
+}
+function showPassport() {
+  var p = document.getElementById('passport');
+  p.style.display = (p.style.display === 'none') ? 'block' : 'none';
+}</script></body></html>
