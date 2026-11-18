@@ -1,0 +1,8 @@
+{
+  "standard": "AMES v2.0",
+  "slsa_level": "SLSA L4",
+  "product": "apumia-procurement-guard-demo",
+  "core_sha256": "8e0b01296f4c77c27dc79ca74359310771f2aa5fe8504d43b7c861d6534cab4b",
+  "dependencies": [],
+  "arithmetic": "Decimal ROUND_HALF_UP (Zero Float)"
+}
