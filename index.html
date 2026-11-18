@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang='ru'><head><meta charset='utf-8'/><title>APUMIA Procurement Guard — AMES v2.0</title><style>body{font-family:-apple-system,sans-serif;background:#0b0f17;color:#e5e7eb;max-width:960px;margin:0 auto;padding:24px}.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:20px;margin-bottom:16px}button{background:#2563eb;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;margin-right:8px}button.sec{background:#1f2937;border:1px solid #374151}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid #1f2937;padding:10px;text-align:left}.badge{color:#34d399;font-family:monospace;font-size:13px}</style></head><body onload='calcAll()'><div class='card'><div class='badge'>AMES v2.0 PROVEN • 8e0b01296f • ZERO-TRUST</div><h1 data-ru='APUMIA Procurement & Price-Creep Guard' data-en='APUMIA Procurement & Price-Creep Guard'>APUMIA Procurement & Price-Creep Guard</h1><p data-ru='Детерминированный аудит закупочных цен, шринкфляции фасовки и отсрочек поставщиков без передачи данных на сервер.' data-en='Deterministic audit of supplier price-creep, unit-shift and payment terms 100% locally in browser.'>Детерминированный аудит закупочных цен, шринкфляции фасовки и отсрочек поставщиков без передачи данных на сервер.</p><button class='sec' onclick='toggleLang()'>RU | EN</button><button class='sec' onclick='showPassport()'>🛡 Паспорт AMES</button><button onclick='exportCsv()'>⬇ Протокол разногласий (.CSV)</button></div><pre id='passport' class='card' style='display:none;color:#34d399'>{
+<!DOCTYPE html><html lang='ru'><head><meta charset='utf-8'/><title>APUMIA Procurement Guard — AMES v2.0</title><style>body{font-family:-apple-system,sans-serif;background:#0b0f17;color:#e5e7eb;max-width:960px;margin:0 auto;padding:24px}.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:20px;margin-bottom:16px}button,label.btn{background:#2563eb;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;margin-right:8px;display:inline-block;font-size:14px}button.sec,label.sec{background:#1f2937;border:1px solid #374151}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid #1f2937;padding:10px;text-align:left}.badge{color:#34d399;font-family:monospace;font-size:13px}</style></head><body onload='calcAll()'><div class='card'><div class='badge'>AMES v2.0 PROVEN • 8e0b01296f • ZERO-TRUST</div><h1 data-ru='APUMIA Procurement & Price-Creep Guard' data-en='APUMIA Procurement & Price-Creep Guard'>APUMIA Procurement & Price-Creep Guard</h1><p data-ru='Детерминированный аудит закупочных цен, шринкфляции фасовки и отсрочек поставщиков (100% локально в браузере).' data-en='Deterministic audit of supplier price-creep, unit-shift and payment terms (100% locally in browser).'>Детерминированный аудит закупочных цен, шринкфляции фасовки и отсрочек поставщиков (100% локально в браузере).</p><button class='sec' onclick='toggleLang()'>RU | EN</button><button class='sec' onclick='showPassport()'>🛡 Паспорт AMES</button><label class='btn sec' for='csvIn' data-ru='📂 Загрузить CSV из 1С' data-en='📂 Load 1C CSV'>📂 Загрузить CSV из 1С</label><input id='csvIn' type='file' accept='.csv' style='display:none' onchange='loadFile(event)'/><button class='sec' onclick='dlSample()'>📄 Шаблон 1С (.CSV)</button><button onclick='exportCsv()'>⬇ Протокол разногласий (.CSV)</button></div><pre id='passport' class='card' style='display:none;color:#34d399'>{
   "standard": "AMES v2.0",
   "slsa_level": "SLSA L4",
   "product": "apumia-procurement-guard-demo",
@@ -17,6 +17,42 @@ function toggleLang() {
   for (var i = 0; i < els.length; i++) {
     els[i].textContent = els[i].getAttribute('data-' + lang);
   }
+}
+function parseCsvText(txt) {
+  var lines = txt.split(/\r?\n/).filter(function(l){ return l.trim(); });
+  if (lines.length < 2) return;
+  var sep = (lines[0].indexOf(';') !== -1) ? ';' : ',';
+  var parsed = [];
+  for (var i = 1; i < lines.length; i++) {
+    var c = lines[i].split(sep);
+    if (c.length < 7) continue;
+    parsed.push({
+      sku: c[0].trim(), name: c[1].trim(),
+      sp: parseFloat(c[2].replace(',', '.')) || 0,
+      su: parseFloat(c[3].replace(',', '.')) || 1,
+      ip: parseFloat(c[4].replace(',', '.')) || 0,
+      iu: parseFloat(c[5].replace(',', '.')) || 1,
+      q: parseFloat(c[6].replace(',', '.')) || 0
+    });
+  }
+  if (parsed.length > 0) { rows = parsed; calcAll(); }
+}
+function loadFile(ev) {
+  var f = ev.target.files[0];
+  if (!f) return;
+  var r = new FileReader();
+  r.onload = function(e) { parseCsvText(e.target.result); };
+  r.readAsText(f, 'UTF-8');
+}
+function dlSample() {
+  var s = '\uFEFFSKU;Name;SpecPrice;SpecUnits;InvPrice;InvUnits;Qty\n';
+  s += 'ENC-5501;Диск отрезной 125мм;3200;50;3450;50;100\n';
+  s += 'ENC-7712;Перфоратор SDS-Plus;8900;1;8900;1;15\n';
+  var b = new Blob([s], {type: 'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = '1C_Procurement_Sample.csv';
+  a.click();
 }
 function calcAll() {
   var rate = parseFloat(document.getElementById('rate').value) || 21;
